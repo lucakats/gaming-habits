@@ -1,0 +1,600 @@
+---
+title: "Gaming Habits & Psychological Well-Being"
+subtitle: Luca Katsavos
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r, include = FALSE}
+library(tidyverse)
+library(scales)
+game <- read_csv("Data.csv")
+```
+
+***
+
+### The Problem
+
+It's often claimed gaming can have positive impacts on mental health, where a 2021 study had 71% of its participants say that gaming helped them feel less isolated. Other studies however, have revealed that a significant number of gamers report having low self-esteem and low life satisfaction. With a near 1-billion increase in the number of worldwide gamers over the last 5 years, the affects gaming is having on our psychological well-being is becoming more and more relevant. There is a wide range of data available regarding this matter and it's therefore becoming increasingly important for data analytics to provide meaning to this data.
+
+An online survey conducted in 2017 had over 13000 individuals from 109 countries provide information regarding their own current gaming habits and psychological well-being. The data resulting from this survey is quite vast, and so in our analysis we'll only focus on 9 variables across the total `r nrow(game)` rows of data. Is there really *any* association between gaming and mental health? We will try to answer this through exploring these 9 variables. The following questions will guide our analysis:
+
+* Does time spent on gaming have a relationship with social phobia? And does this relationship vary depending the traits of the gamer?  
+
+* Does the motive behind one’s gaming habits have a relationship with their social phobia? And does this relationship vary depending the traits of the gamer?  
+
+* Does the academia level and/or employment status of a gamer seem to be associated with their social phobia?  
+
+* Is the residence of a gamer associated with how gaming affects their social phobia?  
+
+Throughout our analysis, we'll utilize two packages within R. The `tidyverse` package will be used most frequently, enabling us to not only visualize our data, but to transform it into a state we can work with. `Scales` will only be used to convert decimal values to percentages. Let's go ahead and load these packages into our session.
+
+```{r, message = FALSE}
+library(tidyverse)
+library(scales)
+```
+
+The following exploratory analysis aims to exhibit any relationships between gaming habits and social phobia. By use of various types of plots within the `ggplot2` space, we'll discover and discuss associations between our dependent variable `SPIN_T` and our range of independent characteristic variables. These variables will be introduced and explained in the data observation stage. Our findings will be summarized at the end of the report once the necessary discussions have taken place.
+
+***
+
+### The Data - Observing
+
+The data can be downloaded from the web as a CSV file. Once it's in the correct directory, let's read it into our R session using the `readr` function `read_csv()`. 
+
+```{r, message = FALSE}
+game <- read_csv("Data.csv")
+```
+
+```{r}
+game
+```
+
+Some of our columns contain inconsistent, random, and messy responses. For example, by running the code `length(unique(game$Playstyle))`, we see that the column `Playstyle` contains `r length(unique(game$Playstyle))` unique values. This is not practical for a tidy analysis, or any analysis for that matter. These columns will have to be adjusted in the *transforming* stage.
+
+While the full data set contains 3 measures of mental health: social anxiety, general anxiety and satisfaction with life, we'll only focus on the first. Social anxiety is measured in the data through the Social Phobia Inventory (SPIN). The inventory is a 17-item rating system for social anxiety disorder (social phobia), also known as SPIN. A `SPIN_T` variable came with the original data set, and has already summed the 17 individual SPIN scores for us. We will use this as the dependent variable for our analysis. 
+
+A summary of `SPIN_T` is computed below:
+
+```{r, echo = FALSE}
+game.SPIN_T.na.rm <- select(filter(game, !is.na(SPIN_T)), SPIN_T)
+
+summary(game.SPIN_T.na.rm)
+```
+
+`SPIN_T` will be accompanied by some categorical variables concerning the gaming habits and socio-economic factors of the gamers so that we can explore the relationships between them and gather insight on any relationships social phobia may have with gaming habits. Let's select and rename these columns using basic dplyr functions, further removing all entries containing at least one `NA` value using `na.omit()`.
+
+```{r}
+game <- select(game, Age, Gender, Hours, Residence, Playstyle, Degree, Work, whyplay, SPIN_T)
+game <- rename(game, Sex = Gender, WhyPlay = whyplay)
+game <- na.omit(game)
+head(game, 5)
+```
+
+We see that readr's function `read_csv` assigned the correct variable type to each column, so there will be no need to adjust these. A brief explanation of each variable can be found below:
+
+`Age` <- Age of the gamer  
+`Sex` <- Gender of the gamer (Male, Female or Other)  
+`Hours` <- Amount of time spent gaming per week in hours  
+`Residence` <- Count the gamer resides in  
+`Playstyle` <- Scenario in which the gamer plays (Singleplayer, Online with friends, etc...)  
+`Degree` <- Highest level of academia achieved  
+`Work` <- Current occupational status  
+`WhyPlay` <- The motive behind gaming  
+`SPIN_T` <- The sum of all 17 items on the Social Phobia Inventory  
+
+***
+
+### The Data - Transforming & Mutating
+
+We now must ensure all data is in a format that's organised and easy to work with. Working from left to right, the data in columns Age, Sex, Hours and Residence appear to be in a tidy format.
+
+```{r}
+glimpse(select(game, Age, Sex, Hours, Residence))
+```
+
+Throughout this stage, we'll also try to gather an understanding of our variables through various types of distributional models. Ggplot2's empirical cumulative distribution function (`stat_ecdf`) will first illustrate the distribution of the `Age` and `Hours` variables. We'll set the geometric object to a line.
+
+(Entries with an `Hours` value of 0 will be removed, as will those with a value above 168, as there are only 168 hours in a week).
+
+```{r, fig.height = 3, fig.align="center"}
+game <- filter(game, Hours > 0 & Hours < 168)
+
+ggplot(game, aes(x = Age))+
+  stat_ecdf(geom = "line")+
+  scale_x_continuous(n.breaks = 20)+
+  theme(aspect.ratio = 0.22)+
+  labs(y = "%", title = "Empirical Cumulative Distribution Function of 'Age'")
+
+ggplot(game, aes(x = Hours))+
+  stat_ecdf(geom = "line")+
+  scale_x_continuous(n.breaks = 20)+
+  scale_y_continuous(n.breaks = 10)+
+  theme(aspect.ratio = 0.22)+
+  labs(y = "%", title = "Empirical Cumulative Distribution Function of 'Hours'")
+```
+
+In an ECDF plot, the y-axis shows the percentage make-up of any area underneath the curve at any point on the x-axis. For instance, around 75% of gamers in our data are under the age of 22 (if we look at where x = 22 and y = 0.75). Hence, our `Age` curve tells us that around half the gamers in our data are teenagers (where x is just below 20 and y = 0.50), and that our data mostly contains gamers below the age of 26 (where the curve starts to flatten out).
+
+The same goes with our `Hours` curve; in that the majority of gaming time per week is below the 40 hour mark (again where the curve flattens). We can also observe that over half of the participants game for more than 20 hours (where x = 20 meets the line) and that around 10% play for an average of only 1 hour per day (where y = 0.1 meets the line).
+
+***
+
+The distribution of our `Sex` variable can easily be illustrated through a pie chart. We can see that the majority of gamers in our data set are male, followed by female and then other.
+
+```{r, fig.height = 2.1, fig.align="center"}
+ggplot(game, aes(x = "", y = Sex, fill = Sex))+
+geom_bar(stat = "identity", width = 1)+
+coord_polar("y", start = 0)+
+scale_fill_brewer(palette = "Dark2")+
+theme_void()
+```
+
+***
+
+Due to the `r n_distinct(game$Residence)` unique country names in `Residence`, it would seem rather difficult to illustrate the variable's distribution. However, by taking the top 10 most common countries in the data, we can group the remaining `r n_distinct(game$Residence) - 10` countries together so it's easier to visualize.
+
+```{r}
+#Making a summary table to plot
+game.resCOUNT <- game %>%
+  count(Residence, sort = TRUE)
+game.resTOP <- head(game.resCOUNT, 10)
+game.resOTHER <- tail(game.resCOUNT, nrow(game.resCOUNT) - 10)
+game.resOTHER <- summarise(game.resOTHER, "Other (99)" = sum(n))
+game.resOTHER <- gather(game.resOTHER)
+game.resOTHER <- rename(game.resOTHER, Residence = key, n = value)
+game.res <- bind_rows(game.resTOP, game.resOTHER)
+game.res
+level.res <- c('Other (99)', 'Poland', 'Brazil', 'Denmark', 'Sweden', 'France', 'Netherlands', 'Canada', 'UK', 'Germany', 'USA')
+#We will create many level objects like the one above so that we can adjust the axis labels on our visualizations to our liking
+```
+
+```{r, fig.height = 2.5, fig.align="center"}
+ggplot(game.res, aes(x = factor(Residence, level = level.res), y = n))+
+  scale_y_continuous(n.breaks = 10)+
+  geom_bar(stat = "identity")+
+  theme(aspect.ratio=0.25,
+        panel.grid = element_blank())+
+  labs(y = "Count", x = "Country")
+```
+
+***
+
+The next column across contains our `Playstyle` variable. As already mentioned, `Playstyle` contains `r length(unique(game$Playstyle))` unique values. We'll have to adjust the column's values using dplyr's `mutate` together with various keywords so that there are only a certain amount of unique character values in `Playstyle`.
+
+```{r, message = FALSE}
+game <- game %>%
+mutate(Playstyle = ifelse(grepl("All|all|ALL|Everything|everything|Mix|mix|MIX", Playstyle) | grepl("Friends|friends", Playstyle) & grepl("Acquaintances|acquaintances", Playstyle) & grepl("Strangers|strangers", Playstyle) & !grepl("Offline|offline", Playstyle), "All", as.character(Playstyle))) %>%
+
+mutate(Playstyle = ifelse(grepl("Strangers|strangers", Playstyle) & grepl("Friends|friends|Acquaintances|acquaintances", Playstyle) & !grepl("Offline|offline", Playstyle), "Online with strangers and friends", as.character(Playstyle))) %>%
+
+mutate(Playstyle = ifelse(grepl("Strangers|strangers", Playstyle) & !grepl("Friends|friends|Acquaintances|acquaintances", Playstyle) & !grepl("Offline|offline", Playstyle), "Online with strangers", as.character(Playstyle))) %>%
+
+mutate(Playstyle = ifelse(grepl("Multiplayer|multiplayer|Online|online", Playstyle) & !grepl("Single|single|Singleplayer|singleplayer|Friends|friends|Acquaintances|acquaintances|Strangers|strangers|Offline|offline", Playstyle), "Online but alone", as.character(Playstyle))) %>%
+
+mutate(Playstyle = ifelse(grepl("Singleplayer|singleplayer|Single|single", Playstyle) & !grepl("Friends|friends|Acquaintances|acquaintances|Multiplayer|multiplayer|Offline|offline", Playstyle), "Singleplayer", as.character(Playstyle))) %>%
+
+mutate(Playstyle = ifelse(grepl("Friends|friends|Acquaintances|acquaintances", Playstyle) & grepl("Multiplayer|multiplayer|Online|online|Real|real|RL|Rl|rl", Playstyle) & !grepl("Singleplayer|singleplayer|Single|single|Strangers|strangers|Offline|offline", Playstyle), "Online with friends", as.character(Playstyle))) %>%
+
+mutate(Playstyle = ifelse(grepl("Offline|offline", Playstyle) & grepl("Friends|friends|Acquaintances|acquaintances|People|people", Playstyle), "Offline with friends", as.character(Playstyle)))
+```
+
+This leaves us with a total of `r nrow(filter(game, !(Playstyle %in% c("All", "Online but alone", "Online with strangers and friends", "Singleplayer", "Online with strangers", "Online with friends", "Offline with friends"))))` data points not accounted for in the above code.
+
+Due to the mere variety of characters in these `r nrow(filter(game, !(Playstyle %in% c("All", "Online but alone", "Online with strangers and friends", "Singleplayer", "Online with strangers", "Online with friends", "Offline with friends"))))` entries (example below) ...
+
+```{r, echo = FALSE}
+sample_n(select(filter(game, !(Playstyle %in% c("All", "Online but alone", "Online with strangers and friends", "Singleplayer", "Online with strangers", "Online with friends", "Offline with friends"))), Playstyle), 5)
+```
+
+... and due to the fact they only make up **`r percent(nrow(filter(game, !(Playstyle %in% c("All", "Online but alone", "Online with strangers and friends", "Singleplayer", "Online with strangers", "Online with friends", "Offline with friends"))))/(nrow(game)), accuracy = 0.01)`** of the total number of entries, we'll remove them from our data all together.
+
+```{r, message = FALSE}
+game <- filter(game, (Playstyle %in% c("All", "Online but alone", "Online with strangers and friends", "Singleplayer", "Online with strangers", "Online with friends", "Offline with friends")))
+```
+
+Our remaining `r nrow(game)` entries now only contain **7 unique values** for the `Playstyle` variable. Below is a simple `ggplot2` bar chart representing the distribution of play styles across the data set.
+
+```{r, fig.height = 1.75, fig.align="center"}
+ggplot(data = game)+
+geom_bar(mapping = aes(x = Playstyle), stat = "count", width = 0.5)+
+coord_flip()+
+theme(aspect.ratio=0.2,
+      panel.grid = element_blank())+
+labs(x = NULL, y = NULL)
+```
+
+***
+
+We can run similar code to tidy up our next column, `Degree`.
+
+```{r}
+game <- game %>%
+mutate(Degree = ifelse(grepl("Bachelor", Degree), "Bachelor or equivalent", as.character(Degree))) %>%
+mutate(Degree = ifelse(Degree == "High school diploma (or equivalent)", "High School or equivalent", as.character(Degree))) %>%
+mutate(Degree = ifelse(Degree == "Ph.D., Psy. D., MD (or equivalent)" , "PhD", as.character(Degree))) %>%
+mutate(Degree = ifelse(grepl("Master", Degree), "Masters", as.character(Degree)))
+```
+
+Again, a simple `ggplot2` bar chart illustrates the distribution of the `Degree` data.
+
+```{r, fig.height = 1.75, fig.align="center", echo = FALSE}
+ggplot(data = game)+
+geom_bar(mapping = aes(x = Degree), stat = "count", width = 0.5)+
+coord_flip()+
+theme(aspect.ratio=0.16,
+      panel.grid = element_blank())+
+labs(x = NULL, y = NULL)
+```
+
+***
+
+And now mutations to tidy up the last columns of `Work` and `WhyPlay`, followed by bar charts representing the distribution of each one.
+
+```{r}
+game <- game %>%
+  
+#Work mutations
+mutate(Work = ifelse(Work == "Unemployed / between jobs", "Unemployed / Between Jobs", as.character(Work))) %>%
+mutate(Work = ifelse(Work == "Student at college / university", "Student at College / University", as.character(Work))) %>%
+mutate(Work = ifelse(Work == "Student at school", "Student at School", as.character(Work))) %>%
+
+#WhyPlay mutations
+mutate(WhyPlay = ifelse(grepl("fun|Fun", WhyPlay) & !grepl("progress|improving|winning|relaxing|Progress|Improving|Winning|Relaxing", WhyPlay), "Fun", as.character(WhyPlay))) %>%
+mutate(WhyPlay = ifelse(grepl("improving|Improving|progress|Progress", WhyPlay) & !grepl("winning|relaxing|Winning|Relaxing", WhyPlay), "Progress", as.character(WhyPlay))) %>%
+mutate(WhyPlay = ifelse(grepl("winning|Winning", WhyPlay) & !grepl("relaxing|Relaxing", WhyPlay), "Winning", as.character(WhyPlay))) %>%
+mutate(WhyPlay = ifelse(grepl("relaxing|Relaxing", WhyPlay), "Relaxing", as.character(WhyPlay))) %>%
+mutate(WhyPlay = ifelse(!grepl("Fun|Progress|Winning|Relaxing", WhyPlay), "Other", as.character(WhyPlay)))
+```
+
+```{r, fig.height = 1.75, fig.align="center", echo = FALSE}
+ggplot(data = game)+
+geom_bar(mapping = aes(x = Work), stat = "count", width = 0.5)+
+coord_flip()+
+theme(aspect.ratio=0.16,
+      panel.grid = element_blank(),
+      plot.title = element_text(size = 10))+
+labs(x = NULL, y = NULL, title = "Work")
+
+ggplot(data = game)+
+geom_bar(mapping = aes(x = WhyPlay), stat = "count", width = 0.5)+
+coord_flip()+
+theme(aspect.ratio=0.16,
+      panel.grid = element_blank(),
+      plot.title = element_text(size = 10))+
+labs(x = NULL, y = NULL, title = "WhyPlay")
+```
+
+***
+
+To grasp how the scores of `SPIN_T` are distributed within our data, we'll create a box plot using `ggplot2`. We'll also create a density plot to illustrate this distribution across `Sex`. A density plot is essentially a variation of a regular histogram, however it charts the values as equally binned distributions. This creates a much smoother distribution shape.
+
+Our box plot will illustrate the overall distribution of `SPIN_T`, and the curves of our density plot will show the distribution of SPIN_T across the variable `Sex`.
+
+```{r, fig.show="hold", out.width="50%"}
+ggplot(data = game)+
+  geom_boxplot(mapping = aes(x = SPIN_T))+
+  scale_y_discrete()+
+  theme(plot.title = element_text(hjust = 0.5))+
+  scale_x_continuous(n.break = 20)+
+  labs(title = "Distribution of SPIN_T")
+
+ggplot(game, aes(x = SPIN_T, color = Sex))+
+  geom_density()+
+  theme(plot.title = element_text(hjust = 0.5))+
+  labs(title = "Density of SPIN_T across Sex", y = "Density")+
+  scale_color_brewer(palette = "Accent")
+```
+
+The box plot above shows us that 50% of our SPIN score data lies between 9 and 28, and that it has a median of 17. It is heavily positively skewed, meaning the mean of `SPIN_T` will be greater than its median.
+
+In our density plot, we observe that the blue male curve shares a similar skewness with the box plot, implying that most of our data is made up of males due to the skewness not varying much once having separated the 'male' data from 'female' and 'other'. We see that with each curve, the data becomes less skewed and more normally distributed. This immediately tells us that the medians and means for gamers of the sex female and other are greater than that of males. Does this mean male gamers are better at managing their mental health? We'll further explore this soon.
+
+The contents of our columns are now all coincided. An analysis like this will be much neater and accurate. We have also discovered how the data contained in each column is distributed.
+
+***
+
+Let's now create two additional variables based on our already existing data, solely for the purpose of visualizations. These variables will be called `AgeGroup` and `HourGroup`. 
+
+`AgeGroup` <- Groups of `Age` in bins of 5  
+`HourGroup` <- Groups of `Hours` in bins of 5
+
+The ECDF curves we drew earlier will guide the boundaries of our code, where we discovered most values in `Hours` were between 1-40, and most values in `Age` were below 26. We'll only create bins up to and including these values, grouping the remaining values together. This will create much tidier visualizations, ultimately allowing us to come to more accurate conclusions.
+
+```{r, fig.height = 3, fig.align="center"}
+#Creating bins for 'Age'
+game <- game %>%
+  mutate(game, AgeGroup = ifelse(Age >= 15 & Age <20 , "15-19", ifelse(Age >= 20 & Age < 25, "20-24", ifelse(Age >= 25 & Age < 30, "25-29", ifelse(Age >= 30, ">30", as.character(Age)))))) %>%
+  
+#Creating bins for 'Hours'
+  mutate(game, HourGroup = ifelse(Hours < 5, "0-4", ifelse(Hours >= 5 & Hours < 10, "5-9", ifelse(Hours >= 10 & Hours < 15, "10-14", ifelse(Hours >= 15 & Hours < 20, "15-19", ifelse(Hours >= 20 & Hours < 25, "20-24", ifelse(Hours >= 25 & Hours < 30, "25-29", ifelse(Hours >= 30 & Hours < 35, "30-34", ifelse(Hours >= 35 & Hours < 40, "35-39", ifelse(Hours >= 40, ">40", as.character(Hours)))))))))))
+
+#Showing the unique values in our newly created variables.
+unique(game$AgeGroup)
+unique(game$HourGroup)
+```
+
+```{r, fig.align = "center"}
+level.age <- c('15-19', '20-24', '25-29', '>30')
+level.hour <- c('0-4', '5-9', '10-14', '15-19', '20-24', '25-29', '30-34', '35-39', '>40')
+
+ggplot(data = game)+
+geom_bar(mapping = aes(x = factor(HourGroup, level = level.hour)), stat = "count", width = 0.5)+
+coord_flip()+
+theme(aspect.ratio=0.4)+
+labs(title = "HourGroup Distribution", y = "Count", x = "Hour Group")
+
+ggplot(data = game)+
+geom_bar(mapping = aes(x = factor(AgeGroup, level = level.age)), stat = "count", width = 0.5)+
+coord_flip()+
+theme(aspect.ratio=0.4)+
+labs(title = "AgeGroup Distribution", y = "Count", x = "Age Group")
+```
+
+We can see from these distributional bar charts that most of our gamers play between 20-24 hours a week and are also between the ages of 20-24. These new variables will allow us to compare the relationships we find with mental health across different ages and different gaming hours per week.
+
+***
+
+### The Data - Visualizing
+
+Visualizing our data is essential to discovery. It allows us to observe things we wouldn't have otherwise seen. We have already plotted the distribution of most of our variables in the previous section, however we'll now explore the relationships *between* our variables, including both bivariate and trivariate associations.
+
+Let's first plot gamers' SPIN scores against their hours played, using the `geom_point()` function from `ggplot2`.
+
+```{r, fig.align="center"}
+ggplot(game, aes(x = Hours, y = SPIN_T))+
+  geom_point(alpha = 1)+
+  theme(aspect.ratio = 0.8)+
+  scale_x_continuous(n.break = 8)+
+  labs(title = "SPIN_T vs Hours")
+```
+
+This plot does not show a whole lot in regards to the relationship between these two variables. There is a lot of variation across SPIN scores for hours played, most likely due to the vast size of our data. We can turn the alpha down as an argument in `geom_point()`, allowing us to see in which spots the data is greater.
+
+```{r, fig.align="center"}
+ggplot(game, aes(x = Hours, y = SPIN_T))+
+  geom_point(alpha = 0.1)+
+  theme(aspect.ratio = 0.8)+
+  scale_x_continuous(n.break = 8)+
+  labs(title = "SPIN_T vs Hours")
+```
+
+We can see that most gamers are placed in the bottom left corner of our graph, meaning most have lower hours played and a lower SPIN_T score. We still cannot see a clear relationship between these two variables. Should we try to linearize this relationship ...
+
+```{r, fig.align="center"}
+ggplot(game, aes(x = Hours, y = SPIN_T))+
+  geom_point(alpha = 0.1)+
+  geom_smooth(method = lm)+
+  theme(aspect.ratio = 0.8)+
+  scale_x_continuous(n.break = 8)+
+  labs(title = "SPIN_T vs Hours")
+```
+
+... it would not be very useful due to the mere variation of our data. This line could not predict much; the data points vary too much from the linear model. How about we plot our `SPIN_T` scores against our `HourGroup` variable we made previously, using a `ggplot2` box plot to illustrate the relationship.
+
+```{r, fig.align="center"}
+ggplot(data = game)+
+  geom_boxplot(mapping = aes(x = factor(HourGroup, level = level.hour), y = SPIN_T))+
+  labs(title = "SPIN_T vs Hours", x = "Hours spent gaming")
+```
+
+A clear trend can be observed in the plot above. We see that as gamers begin to play over 9 hours a week, the positions of the boxes move up on the y-axis. While the first box plot does not fit this trend perfectly due to its higher IQR, the median value fits the trend of increasing medians across the plot.
+
+We can also see the sizes of the boxes are generally smaller towards the lower hour groups. This is simply due to the fact there is more data in these groups, as was seen in our first dot plot. This increasing variation also accounts for the decrease in outliers as hours played goes up, as the actual range of the variation will include more data points rather than leaving them as outliers.
+
+And so, this plot tells us there is a small but distinct positive relationship between time spent gaming and social anxiety. We'll now see whether this relationship varies across the ages of the gamers, simply by faceting the box plots over `Age`.
+
+```{r, fig.align="center"}
+ggplot(data = game)+
+  geom_boxplot(mapping = aes(x = factor(HourGroup, level = level.hour), y = SPIN_T))+
+  labs(title = "SPIN_T vs Hours across Age", x = "Hours spent gaming")+
+  theme(axis.text.x = element_text(angle = 90))+
+  facet_grid(~factor(AgeGroup, levels = level.age))
+```
+
+By faceting the association between `SPIN_T` and `Hours` across `Age`, we see something similar for all age groups. That is, as hours played goes up, SPIN seems to as well. Again, we can see the general size of the boxes increase as hours spent gaming goes up, reducing the amount of outliers. We also see as the age of our gamers goes up, the data seems to become more inconsistent and random, once again a result of those higher age groups not having as much data present as the lower ones. 
+
+A pattern we can see in the first 3 age groups is that the median of `SPIN_T` tends to increase *only after* it has decreased. This suggests that gaming can actually help social phobia for those under the age of 30, but only *before* they begin playing 20 hours a week.
+
+Furthermore, in teenage years, gamers appear to have higher SPIN scores, where not one of the boxes has a Q1 value of lower than 10. As age then increases, the positions of the boxes follow a declining trend, where not one of the box plots in the 'above 30' age group has a Q1 value of over 10. We can therefore say that younger gamers suffer from social phobia more than older ones do.
+
+Let's now explore the relationship between `Age`, `Hours` and `SPIN_T` using ggplot2's `geom_raster`. For this graph we'll have to create new variables for our non-numeric variables with numbered points for the `geom_raster` function to work.
+
+```{r}
+game <- game %>%
+  mutate(game, AgeGroupNumbered = ifelse(Age >= 15 & Age <20 , "1. 15-19", ifelse(Age >= 20 & Age < 25, "2. 20-24", ifelse(Age >= 25 & Age < 30, "3. 25-29", ifelse(Age >= 30, "4. >30", as.character(Age)))))) %>%
+
+  mutate(game, HourGroupNumbered = ifelse(Hours < 5, "1. 0-4", ifelse(Hours >= 5 & Hours < 10, "2. 5-9", ifelse(Hours >= 10 & Hours < 15, "3. 10-14", ifelse(Hours >= 15 & Hours < 20, "4. 15-19", ifelse(Hours >= 20 & Hours < 25, "5. 20-24", ifelse(Hours >= 25 & Hours < 30, "6. 25-29", ifelse(Hours >= 30 & Hours < 35, "7. 30-34", ifelse(Hours >= 35 & Hours < 40, "8. 35-39", ifelse(Hours >= 40, "9. >40", as.character(Hours)))))))))))
+```
+
+```{r, fig.align="center"}
+ggplot(game, aes(x = HourGroupNumbered, y = AgeGroupNumbered))+
+         geom_raster(aes(fill = SPIN_T), interpolate = TRUE)+
+         scale_fill_gradient2(low = "red", mid = "white", high = "red", 
+                       midpoint=0, limits = range(game$SPIN_T))+
+         theme_classic()+
+         scale_x_discrete(labels = level.hour)+
+         scale_y_discrete(labels = level.age)+
+         labs(title = "Age vs Hours Spent Gaming vs SPIN_T", y = "Age", x = "Hours spent gaming")
+```
+
+Looking at the scale on the right, we see the darker red is where `SPIN_T` is highest. That is:
+
+* where 20-24 year olds game for 0-4 and 25-29 hours a week, and
+* where 25-29 year olds game for 5-9 and 35-39 hours a week.
+
+While the whiter parts could be due to a lack of data in that area, it could be where SPIN_T is lowest in regards to `Hours` and `Age`. That is:
+
+* where 25-29 year olds game for 20-24 and 30-34 hours a week, and
+* where above 30 year olds play for more than 35 hours a week.
+
+The takeaways from this plot, however, clash with our previous findings. If there was a clear relationship between SPIN scores and hours played, the red would appear darker from left to right for each age group, where it does not do that for any age group. There is in fact no clear correlation between hours spent gaming and SPIN_T in this raster plot.
+
+Let's facet this raster plot across sex rather than age.
+
+```{r, fig.align="center"}
+ggplot(game, aes(x = HourGroupNumbered, y = AgeGroupNumbered))+
+         geom_raster(aes(fill = SPIN_T), interpolate = TRUE)+
+         scale_fill_gradient2(low = "red", mid = "white", high = "red", 
+                       midpoint=0, limits = range(game$SPIN_T))+
+         theme_classic()+
+         scale_x_discrete(labels = level.hour)+
+         scale_y_discrete(labels = level.age)+
+         facet_grid(.~Sex)+
+         theme(axis.text.x = element_text(angle = 90))+
+         labs(title = "Age vs Hours Spent Gaming vs SPIN_T", y = "Age", x = "Hours spent gaming")
+```
+
+By segmenting sex in this way, we see that teenage gamers that are not male are affected more from social phobia than males are, as the red is darker in the bottom row of the outer 2 plots. We also see that females tend to have higher measures of social phobia once they start playing a higher amount of hours, whereas male social phobia suffering is more evenly distributed.
+
+***
+
+Let's now see whether the *motive* behind one's gaming habits has any affect on their social phobia. We'll return to ggplot2's `geom_boxplot` function to do so.
+
+```{r, fig.align="center"}
+level.whyplay <- c('Progress', 'Winning', 'Fun', 'Relaxing', 'Other')
+
+ggplot(data = game)+
+  geom_boxplot(mapping = aes(x = factor(HourGroup, level = level.hour), y = SPIN_T))+
+  scale_fill_brewer(palette = "Dark2")+
+  facet_grid(.~factor(WhyPlay, levels = level.whyplay))+
+  labs(title = "SPIN_T vs Hours across Motive", x = "Hours spent gaming")+
+  theme(axis.text.x = element_text(angle = 90))+
+  theme(legend.position = "none")
+```
+
+We can observe something interesting here. In the 'Relaxing' and 'Fun' plots, the median of SPIN scores begin to increase from the very start; there is no initial decrease in `SPIN_T` medians. However, in the 'Winning' and 'Progress' plots, the medians of `SPIN_T` appear to follow the trend identified before, where after about 20 hours of playing the social phobia of gamers stops to decrease and begins to increase. As the motives of 'winning' and 'progress' are more objective based compared to 'relaxing' and 'fun', this may suggest that gaming with an actual goal/purpose can have a positive affect on social phobia for up to 20 hours of gaming a week.
+
+How does this relationship vary across the gender of the gamer? We'll once again use `geom_raster` to illustrate this, faceting across sex. (We'll have to create a new numbered variable for WhyPlay).
+
+```{r}
+game <- mutate(game, WhyPlayNumbered = ifelse(WhyPlay == "Progress", "1", ifelse(WhyPlay == "Winning", "2", ifelse(WhyPlay == "Fun", "3", ifelse(WhyPlay == "Relaxing", "4", ifelse(WhyPlay == "Other", "5", as.character(WhyPlay)))))))
+```
+
+```{r, fig.align="center"}
+ggplot(game, aes(x = HourGroupNumbered, y = WhyPlayNumbered))+
+  geom_raster(aes(fill = SPIN_T), interpolate = TRUE)+
+  scale_fill_gradient2(low = "red", mid = "white", high = "red", midpoint=0, limits = range(game$SPIN_T))+
+  theme_classic()+
+  scale_x_discrete(labels = level.hour)+
+    scale_y_discrete(labels = level.whyplay)+
+  labs(title = "Motive vs Hours Spent Gaming vs SPIN_T", y = "Motive", x = "Hours spent gaming")+
+  facet_grid(.~Sex)+
+  theme(axis.text.x = element_text(angle = 90))
+```
+
+We see in this raster plot that within the motive 'winning', males suffer more from social phobia than any other gender. We also see that out of those who game to see progress, females seem to suffer more, where a clear trend can be seen of increasing SPIN score as hours played goes up. This plot further shows us that playing for reasons 'progress', 'winning', and 'other' result in a higher `SPIN_T` score than playing to relax or for fun, conflicting with our previous finding. We say this because across all the genders, there seems to be more of darker red in these 3 rows. We can also observe that the tiles of the plots get darker across all genders as hours played surpasses 20, further supporting a positive relationship between `Hours` and `SPIN_T`, but only *after* 20 hours is played a week.
+
+Let's now illustrate the relationship between `Hours`, `Degree`, and `SPIN_T`, to see if social phobia affects gamers differently based on their highest level of academia.
+
+```{r}
+game <- mutate(game, DegreeNumbered = ifelse(Degree == "Bachelor or equivalent", "3", ifelse(Degree == "High School or equivalent", "2", ifelse(Degree == "PhD", "5", ifelse(Degree == "Masters", "4", ifelse(Degree == "None", "1", as.character(Degree)))))))
+
+level.degree <- c('None', 'High School or equivalent', 'Bachelor or equivalent', 'Masters', 'PhD')
+```
+
+```{r, fig.align="center"}
+ggplot(game, aes(x = HourGroupNumbered, y = DegreeNumbered))+
+  geom_raster(aes(fill = SPIN_T), interpolate = TRUE)+
+  scale_fill_gradient2(low = "red", mid = "white", high = "red", midpoint=0, limits = range(game$SPIN_T))+
+  theme_classic()+
+  scale_x_discrete(labels = level.hour)+
+  scale_y_discrete(labels = level.degree)+
+  labs(title = "Degree vs Hours Spent Gaming vs SPIN_T", y = "Acadamic achievement", x = "Hours spent gaming")+
+  theme(axis.text.x = element_text(angle = 90))
+```
+
+The first thing we notice is that the 2 darkest spots are where Bachelor students play between 5-9 hours, and where no academia achievers play above 40 hours. This is where SPIN scores are at their highest. When we split the relationship between `SPIN_T` and `Hours` by level of academia like this, the positive association between SPIN score and hours played seems to disappear, except for those with no academia achievements, where the tiles gradually get darker as hours played increases. This suggests that there is a positive correlation between gaming hours and social phobia for gamers who haven't achieved any academia level.
+
+An interesting pattern we can see from this plot is that, excluding those with no academic achievement, as individuals work their way up the academia levels, the affects gaming has on their social phobia gets reversed, where those having done high school and/or a bachelor degree seem to suffer less from social phobia the more time they spend on gaming, and for those having completed a masters and/or PhD, as more time is spent on gaming, social phobia appears to worsen. But is this representative of an association between `Age` and `SPIN_T`? (As individuals with higher academia tend to be older). Or is academic achievement alone responsible for this trend? Let's place the above `Degree` raster plot against the earlier one for `Age` to investigate.
+
+```{r, fig.show="hold", out.width="50%"}
+ggplot(game, aes(x = HourGroupNumbered, y = DegreeNumbered))+
+  geom_raster(aes(fill = SPIN_T), interpolate = TRUE)+
+  scale_fill_gradient2(low = "red", mid = "white", high = "red", midpoint=0, limits = range(game$SPIN_T))+
+  theme_classic()+
+  scale_x_discrete(labels = level.hour)+
+  scale_y_discrete(labels = level.degree)+
+  labs(title = "Degree vs Hours Spent Gaming vs SPIN_T", y = "Acadamic achievement", x = "Hours spent gaming")+
+  theme(axis.text.x = element_text(angle = 90))
+
+ggplot(game, aes(x = HourGroupNumbered, y = AgeGroupNumbered))+
+         geom_raster(aes(fill = SPIN_T), interpolate = TRUE)+
+         scale_fill_gradient2(low = "red", mid = "white", high = "red", 
+                       midpoint=0, limits = range(game$SPIN_T))+
+         theme_classic()+
+         scale_x_discrete(labels = level.hour)+
+         scale_y_discrete(labels = level.age)+
+         labs(title = "Age vs Hours Spent Gaming vs SPIN_T", y = "Age", x = "Hours spent gaming")
+```
+
+Even though both y-axis's are ordered in the sense that they go from youngest to oldest, the plots are different. We cannot see the same pattern in the `Age` raster that we can in the `Degree` raster. Therefore, academic achievement alone must play a role in gamers' social phobia.
+
+We'll now create a similar `geom_raster` plot, but swap academic achievement for current work status.
+
+```{r}
+game <- mutate(game, WorkNumbered = ifelse(Work == "Unemployed / Between Jobs", "3", ifelse(Work == "Employed", "4", ifelse(Work == "Student at College / University", "2", ifelse(Work == "Student at School", "1", as.character(Work))))))
+
+level.work <- c('Student at School', 'Student at College / University', 'Unemployed / Between Jobs', 'Employed', 'None')
+```
+
+```{r, fig.align="center"}
+ggplot(game, aes(x = HourGroupNumbered, y = WorkNumbered))+
+  geom_raster(aes(fill = SPIN_T), interpolate = TRUE)+
+  scale_fill_gradient2(low = "red", mid = "white", high = "red", midpoint=0, limits = range(game$SPIN_T))+
+  theme_classic()+
+  scale_x_discrete(labels = level.hour)+
+  scale_y_discrete(labels = level.work)+
+  labs(title = "Work vs Hours Spent Gaming vs SPIN_T", y = "Current work status", x = "Hours spent gaming")+
+  theme(axis.text.x = element_text(angle = 90))
+```
+
+We see that `SPIN_T` is highest when people in the workforce (employed and unemployed/between jobs) game between 35-39 hours a week, and where students at school game over 40 hours a week.
+
+For gamers not at college, spending more hours a week gaming appears to increase social phobia on a larger scale than for those at college, where the tiles do not get as dark red as hours go up. This could be due to the already extremely social environments at colleges and universities, compared to that of elsewhere.
+
+Lastly, we'll plot `Hours`, `SPIN_T` and `Residence` together, to see if social phobia affects gamers differently based on the country they live in.
+
+```{r}
+game <- mutate(game, ResNumbered = ifelse(Residence == "USA", "11", ifelse(Residence == "Germany", "10", ifelse(Residence == "UK", "9", ifelse(Residence == "Canada", "8", ifelse(Residence == "Netherlands", "7", ifelse(Residence == "France", "6", ifelse(Residence == "Sweden", "5", ifelse(Residence == "Brazil", "4", ifelse(Residence == "Denmark", "3", ifelse(Residence == "Poland", "2", "1")))))))))))
+```
+
+```{r, fig.align="center"}
+ggplot(game, aes(x = HourGroupNumbered, y = ResNumbered))+
+  geom_raster(aes(fill = SPIN_T), interpolate = TRUE)+
+  scale_fill_gradient2(low = "red", mid = "white", high = "red", midpoint=0, limits = range(game$SPIN_T))+
+  theme_classic()+
+  scale_x_discrete(labels = level.hour)+
+  scale_y_discrete(labels = level.res)+
+  labs(title = "Residence vs Hours Spent Gaming vs SPIN_T", y = "Residence", x = "Hours spent gaming")+
+  theme(axis.text.x = element_text(angle = 90))
+```
+
+There does not seem to be much in common about the relationships between `Hours` and `SPIN_T` across different countries. We can see, however, that Poland and the USA experience SPIN scores upwards of 68 (the max score) when gamers play for 35-39 hours a week, and that higher `SPIN_T` scores are present between 0 and 9 hours played in the remaining 99 countries that don't have their own row.
+
+***
+
+### Findings & Conclusion
+
+Through the visualization of our data, there appears to be somewhat of an association between gaming hours and social phobia.
+
+We found that for those under the age of 30, gaming up to 20 hours a week seems to actually *reduce* social phobia, especially when the motive to play involves a goal/purpose. However, after 20 hours of gaming a week and regardless of the motive, social phobia appears to worsen for under 30s. For over 30's, there was found to be a clear positive association with time spent gaming each week and Social Phobia Inventory scores regardless of the hours spent.
+
+The relationship between gaming and social phobia in teenagers was found to be stronger than that of older age groups. We saw that females tend to have higher measures of social phobia only once they start playing a higher amount of hours, whereas male social phobia suffering is more evenly distributed. It can therefore be said that females are better at managing their social phobia the more they game, compared to males.
+
+It was found that academic achievement alone plays a role in gamers’ social phobia. Gamers with no academic achievement experience a direct positive association with social phobia as they play more. Gamers that have achieved a bachelor or high school degree seem to experience *reduced* social phobia the more they game, whereas masters and PhD achievers experience *increased* social phobia the more they game. This was also found to have nothing to do with the age of the academic achievers. Students at college or university also seem to be affected less by gaming hours in terms of social phobia, compared to those at school and those in the workforce.
+
+The analysis finally concluded that the residence of gamers had no affect on the relationship between Social Phobia Inventory scores and hours spent gaming.
+
+***
+
+### References
+
+Sauter, M., & Draschkow, D. (2017). Gaming Habits and Psychological Well-being: An international dataset about the Anxiety, Life Satisfaction and Social Phobia of over 13000 gamers. Retrieved from https://osf.io/vnbxk/
+
+Statista. (2020). Number of active video gamers worldwide from 2015 to 2023. Retrieved from https://www.statista.com/statistics/748044/number-video-gamers-world/
+
+Bach, D. (2021). Mind games: How gaming can play a positive role in mental health. Retrieved from https://news.microsoft.com/features/mind-games-how-gaming-can-play-a-positive-role-in-mental-health/
+
+von der Heiden, J., Braun, B., Muller, K. Egloff, B. (2019). The Association Between Video Gaming and Psychological Functioning. Retrieved from https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6676913/
